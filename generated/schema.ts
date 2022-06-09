@@ -335,4 +335,21 @@ export class User extends Entity {
   set added(value: boolean) {
     this.set("added", Value.fromBoolean(value));
   }
+
+  get poolUser(): Array<string> | null {
+    let value = this.get("poolUser");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toStringArray();
+    }
+  }
+
+  set poolUser(value: Array<string> | null) {
+    if (!value) {
+      this.unset("poolUser");
+    } else {
+      this.set("poolUser", Value.fromStringArray(<Array<string>>value));
+    }
+  }
 }

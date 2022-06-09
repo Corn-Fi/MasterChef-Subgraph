@@ -1,13 +1,10 @@
-import { Address, BigInt, BigDecimal, dataSource } from "@graphprotocol/graph-ts"
-import { ChainlinkOracle, NewRound } from "../generated/ChainlinkOracle/ChainlinkOracle"
+import { Address, BigInt, BigDecimal } from "@graphprotocol/graph-ts"
+import { NewRound } from "../generated/ChainlinkOracle/ChainlinkOracle"
 import { Oracle as OracleContract } from "../generated/ChainlinkOracle/Oracle"
-import { ERC20 } from "../generated/ChainlinkOracle/ERC20"
 import { Pool } from "../generated/schema"
 import { fetchMasterchef, fetchPool, fetchMasterchefContract } from "./master-chef"
 
-const oracleAddress = Address.fromString('0xcc19E9914CAC9b7259b13797C303C6cC495A49CE')
-const USDC = Address.fromString('0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174')
-const oracleContract = OracleContract.bind(oracleAddress)
+const oracleAddress = Address.fromString('0xB85fEe06B1b6a84c5Df0A0e15aEe9810b086EDBB')
 
 const poolIds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16]
 
@@ -16,12 +13,15 @@ const PRECISION = BigDecimal.fromString("1000000")
 const DEPOSIT_PRECISION = BigDecimal.fromString("10000")
 
 
-
+export function fetchOracleContract(): OracleContract {
+  return OracleContract.bind(oracleAddress)
+}
 
 export function updateMasterChefPool(poolId: BigInt, timestamp: BigInt): Pool {
   let pool = fetchPool(poolId)
   const mc = fetchMasterchefContract()
   const poolInfo = mc.poolInfo(poolId)
+  const oracleContract = fetchOracleContract()
 
   if(pool.priceUSD.equals(BigDecimal.zero())) {
     const lp = oracleContract.try_getLpRateUSD(poolInfo.getLpToken())

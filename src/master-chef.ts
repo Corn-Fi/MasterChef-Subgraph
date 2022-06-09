@@ -1,6 +1,4 @@
-import { Address, BigDecimal, BigInt, dataSource, ethereum } from "@graphprotocol/graph-ts"
-import { ChainlinkOracle, NewRound } from "../generated/ChainlinkOracle/ChainlinkOracle"
-import { Oracle as OracleContract } from "../generated/ChainlinkOracle/Oracle"
+import { Address, BigDecimal, BigInt, ethereum } from "@graphprotocol/graph-ts"
 import { ERC20 } from "../generated/ChainlinkOracle/ERC20"
 import { 
     MasterChef as MasterChefContract,
@@ -15,8 +13,6 @@ const ADDRESS_ZERO = Address.fromString('0x0000000000000000000000000000000000000
 const BIG_INT_ONE = BigInt.fromI32(1)
 const BIG_INT_ZERO = BigInt.fromI32(0)
 
-const oracleAddress = Address.fromString('0xB85fEe06B1b6a84c5Df0A0e15aEe9810b086EDBB')
-const oracleContract = OracleContract.bind(oracleAddress)
 const masterChefAddress = Address.fromString('0xb4b14aa0dfa22cb3549de81e2657c6c026014090')
 const DEPOSIT_PRECISION = BigDecimal.fromString("10000")
 
@@ -28,13 +24,13 @@ export function fetchMasterchefContract(): MasterChefContract {
 
 
 export function fetchMasterchef(): Masterchef {
-    let masterChef = Masterchef.load(dataSource.address().toHex())
+    let masterChef = Masterchef.load(masterChefAddress.toHexString())
 
     if (masterChef === null) {
-        masterChef = new Masterchef(dataSource.address().toHex())
+        masterChef = new Masterchef(masterChefAddress.toHexString())
         masterChef.poolCount = BIG_INT_ZERO
         masterChef.tvl = BigDecimal.zero()
-        masterChef.cobPerBlock = BigDecimal.zero()
+        masterChef.cobPerBlock = BigDecimal.fromString("2.24")
         masterChef.totalAllocationPoints = BIG_INT_ZERO
         masterChef.userCount = BIG_INT_ZERO
         masterChef.save()
@@ -77,15 +73,6 @@ export function fetchPool(poolId: BigInt): Pool {
 
 
 export function fetchUser(address: Address, poolId: BigInt): PoolUser {
-    let u = User.load(address.toHexString())
-    if(u === null) {
-        u = new User(address.toHexString())
-        u.added = true
-        u.save()
-
-        let mc = fetchMasterchef()
-        mc.userCount = mc.userCount.plus(BIG_INT_ONE)
-    }
     const id = poolId.toString().concat("-").concat(address.toHexString())
     let user = PoolUser.load(id)
     if(user === null) {
@@ -99,6 +86,25 @@ export function fetchUser(address: Address, poolId: BigInt): PoolUser {
 
         pool.userCount = pool.userCount.plus(BIG_INT_ONE)
         pool.save()
+    }
+
+    let u = User.load(address.toHexString())
+    if(u === null) {
+        u = new User(address.toHexString())
+        u.added = true
+        
+        const poolUser = u.poolUser 
+        if(poolUser === null) {
+            u.poolUser = [user.id]
+        }
+        else {
+            u.poolUser = poolUser.concat([user.id])
+        }
+        u.save()
+
+        let mc = fetchMasterchef()
+        mc.userCount = mc.userCount.plus(BIG_INT_ONE)
+        mc.save()
     }
 
     return user as PoolUser
