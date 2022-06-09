@@ -1,0 +1,74 @@
+specVersion: 0.0.1
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: undefined
+    network: matic
+    source:
+      address: "0xf9c53A834F60cBbE40E27702276fBc0819B3aFAD"
+      abi: ChainlinkOracle
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.5
+      language: wasm/assemblyscript
+      entities:
+        - AddedAccess
+        - AnswerUpdated
+        - BillingAccessControllerSet
+        - BillingSet
+        - CheckAccessDisabled
+        - CheckAccessEnabled
+        - ConfigSet
+        - NewRound
+        - NewTransmission
+        - OraclePaid
+        - OwnershipTransferRequested
+        - OwnershipTransferred
+        - PayeeshipTransferRequested
+        - PayeeshipTransferred
+        - RemovedAccess
+        - RequesterAccessControllerSet
+        - RoundRequested
+        - ValidatorConfigSet
+      abis:
+        - name: ChainlinkOracle
+          file: ./abis/ChainlinkOracle.json
+      eventHandlers:
+        - event: AddedAccess(address)
+          handler: handleAddedAccess
+        - event: AnswerUpdated(indexed int256,indexed uint256,uint256)
+          handler: handleAnswerUpdated
+        - event: BillingAccessControllerSet(address,address)
+          handler: handleBillingAccessControllerSet
+        - event: BillingSet(uint32,uint32,uint32,uint32,uint32)
+          handler: handleBillingSet
+        - event: CheckAccessDisabled()
+          handler: handleCheckAccessDisabled
+        - event: CheckAccessEnabled()
+          handler: handleCheckAccessEnabled
+        - event: ConfigSet(uint32,uint64,address[],address[],uint8,uint64,bytes)
+          handler: handleConfigSet
+        - event: NewRound(indexed uint256,indexed address,uint256)
+          handler: handleNewRound
+        - event: NewTransmission(indexed uint32,int192,address,int192[],bytes,bytes32)
+          handler: handleNewTransmission
+        - event: OraclePaid(address,address,uint256)
+          handler: handleOraclePaid
+        - event: OwnershipTransferRequested(indexed address,indexed address)
+          handler: handleOwnershipTransferRequested
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
+        - event: PayeeshipTransferRequested(indexed address,indexed address,indexed address)
+          handler: handlePayeeshipTransferRequested
+        - event: PayeeshipTransferred(indexed address,indexed address,indexed address)
+          handler: handlePayeeshipTransferred
+        - event: RemovedAccess(address)
+          handler: handleRemovedAccess
+        - event: RequesterAccessControllerSet(address,address)
+          handler: handleRequesterAccessControllerSet
+        - event: RoundRequested(indexed address,bytes16,uint32,uint8)
+          handler: handleRoundRequested
+        - event: ValidatorConfigSet(indexed address,uint32,indexed address,uint32)
+          handler: handleValidatorConfigSet
+      file: ./src/chainlink-oracle.ts
