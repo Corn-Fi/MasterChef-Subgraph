@@ -9,7 +9,6 @@ dataSources:
       address: "0xb4b14aa0dfa22cb3549de81e2657c6c026014090"
       abi: MasterChef
       startBlock: 27763717
-      # startBlock: 29330000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.5

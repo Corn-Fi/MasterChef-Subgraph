@@ -8,20 +8,16 @@ import {
     Withdraw
 } from "../generated/Masterchef/MasterChef"
 import { Masterchef, Pool, User, PoolUser } from "../generated/schema"
+import { BIG_INT_ZERO, BIG_INT_ONE, masterChefAddress, DEPOSIT_PRECISION } from "./constants"
 
-const ADDRESS_ZERO = Address.fromString('0x0000000000000000000000000000000000000000')
-const BIG_INT_ONE = BigInt.fromI32(1)
-const BIG_INT_ZERO = BigInt.fromI32(0)
-
-const masterChefAddress = Address.fromString('0xb4b14aa0dfa22cb3549de81e2657c6c026014090')
-const DEPOSIT_PRECISION = BigDecimal.fromString("10000")
+// ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 
 export function fetchMasterchefContract(): MasterChefContract {
     return MasterChefContract.bind(masterChefAddress)
 }
 
-
-
+// ----------------------------------------------------------------------
 
 export function fetchMasterchef(): Masterchef {
     let masterChef = Masterchef.load(masterChefAddress.toHexString())
@@ -39,6 +35,7 @@ export function fetchMasterchef(): Masterchef {
     return masterChef as Masterchef
 }
 
+// ----------------------------------------------------------------------
 
 export function fetchPool(poolId: BigInt): Pool {
     let pool = Pool.load(poolId.toString())
@@ -71,6 +68,7 @@ export function fetchPool(poolId: BigInt): Pool {
     return pool as Pool
 }
 
+// ----------------------------------------------------------------------
 
 export function fetchUser(address: Address, poolId: BigInt): PoolUser {
     const id = poolId.toString().concat("-").concat(address.toHexString())
@@ -110,10 +108,7 @@ export function fetchUser(address: Address, poolId: BigInt): PoolUser {
     return user as PoolUser
 }
 
-
-
-
-
+// ----------------------------------------------------------------------
 
 export function handleDeposit(event: Deposit): void {
     const masterchef = fetchMasterchefContract()
