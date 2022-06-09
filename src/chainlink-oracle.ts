@@ -1,133 +1,95 @@
-import { BigInt } from "@graphprotocol/graph-ts"
-import {
-  ChainlinkOracle,
-  AddedAccess,
-  AnswerUpdated,
-  BillingAccessControllerSet,
-  BillingSet,
-  CheckAccessDisabled,
-  CheckAccessEnabled,
-  ConfigSet,
-  NewRound,
-  NewTransmission,
-  OraclePaid,
-  OwnershipTransferRequested,
-  OwnershipTransferred,
-  PayeeshipTransferRequested,
-  PayeeshipTransferred,
-  RemovedAccess,
-  RequesterAccessControllerSet,
-  RoundRequested,
-  ValidatorConfigSet
-} from "../generated/ChainlinkOracle/ChainlinkOracle"
-import { ExampleEntity } from "../generated/schema"
+import { Address, BigInt, BigDecimal, dataSource } from "@graphprotocol/graph-ts"
+import { ChainlinkOracle, NewRound } from "../generated/ChainlinkOracle/ChainlinkOracle"
+import { Oracle as OracleContract } from "../generated/ChainlinkOracle/Oracle"
+import { ERC20 } from "../generated/ChainlinkOracle/ERC20"
+import { Pool } from "../generated/schema"
+import { fetchMasterchef, fetchPool, fetchMasterchefContract } from "./master-chef"
 
-export function handleAddedAccess(event: AddedAccess): void {
-  // Entities can be loaded from the store using a string ID; this ID
-  // needs to be unique across all entities of the same type
-  let entity = ExampleEntity.load(event.transaction.from.toHex())
+const oracleAddress = Address.fromString('0xcc19E9914CAC9b7259b13797C303C6cC495A49CE')
+const USDC = Address.fromString('0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174')
+const oracleContract = OracleContract.bind(oracleAddress)
 
-  // Entities only exist after they have been saved to the store;
-  // `null` checks allow to create entities on demand
-  if (!entity) {
-    entity = new ExampleEntity(event.transaction.from.toHex())
+const poolIds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16]
 
-    // Entity fields can be set using simple assignments
-    entity.count = BigInt.fromI32(0)
+
+const PRECISION = BigDecimal.fromString("1000000")
+const DEPOSIT_PRECISION = BigDecimal.fromString("10000")
+
+
+
+
+export function updateMasterChefPool(poolId: BigInt, timestamp: BigInt): Pool {
+  let pool = fetchPool(poolId)
+  const mc = fetchMasterchefContract()
+  const poolInfo = mc.poolInfo(poolId)
+
+  if(pool.priceUSD.equals(BigDecimal.zero())) {
+    const lp = oracleContract.try_getLpRateUSD(poolInfo.getLpToken())
+    if(lp.reverted) {
+      pool.lp = false
+    }
+    else {
+      pool.lp = true
+    }
   }
+  if(pool.lp) {
+    pool.priceUSD = oracleContract.getLpRateUSD(poolInfo.getLpToken()).toBigDecimal().div(PRECISION)
+  }
+  else {
+    pool.priceUSD = oracleContract.getRateUSD(poolInfo.getLpToken()).toBigDecimal().div(PRECISION)
+  }
+  pool.tvl = pool.priceUSD.times(pool.totalDeposited)
 
-  // BigInt and BigDecimal math are supported
-  entity.count = entity.count + BigInt.fromI32(1)
-
-  // Entity fields can be set based on event parameters
-  entity.user = event.params.user
-
-  // Entities can be written to the store with `.save()`
-  entity.save()
-
-  // Note: If a handler doesn't require existing field values, it is faster
-  // _not_ to load the entity from the store. Instead, create it fresh with
-  // `new Entity(...)`, set the fields that should be updated and save the
-  // entity back to the store. Fields that were not set or unset remain
-  // unchanged, allowing for partial updates to be applied.
-
-  // It is also possible to access smart contracts from mappings. For
-  // example, the contract that has emitted the event can be connected to
-  // with:
-  //
-  // let contract = Contract.bind(event.address)
-  //
-  // The following functions can then be called on this contract to access
-  // state variables and other data:
-  //
-  // - contract.LINK(...)
-  // - contract.billingAccessController(...)
-  // - contract.checkEnabled(...)
-  // - contract.decimals(...)
-  // - contract.description(...)
-  // - contract.getAnswer(...)
-  // - contract.getBilling(...)
-  // - contract.getRoundData(...)
-  // - contract.getTimestamp(...)
-  // - contract.hasAccess(...)
-  // - contract.latestAnswer(...)
-  // - contract.latestConfigDetails(...)
-  // - contract.latestRound(...)
-  // - contract.latestRoundData(...)
-  // - contract.latestTimestamp(...)
-  // - contract.latestTransmissionDetails(...)
-  // - contract.linkAvailableForPayment(...)
-  // - contract.maxAnswer(...)
-  // - contract.minAnswer(...)
-  // - contract.oracleObservationCount(...)
-  // - contract.owedPayment(...)
-  // - contract.owner(...)
-  // - contract.requestNewRound(...)
-  // - contract.requesterAccessController(...)
-  // - contract.transmitters(...)
-  // - contract.typeAndVersion(...)
-  // - contract.validatorConfig(...)
-  // - contract.version(...)
+  const allocPoints = poolInfo.getAllocPoint()
+  if(!allocPoints.equals(pool.allocationPoint)) {
+    let masterchef = fetchMasterchef()
+    masterchef.totalAllocationPoints = masterchef.totalAllocationPoints.plus(allocPoints.minus(pool.allocationPoint))
+    masterchef.save()
+    pool.allocationPoint = allocPoints
+  }
+  pool.allocationPoint = poolInfo.getAllocPoint()
+  pool.depositFee = BigInt.fromI32(poolInfo.getDepositFeeBP()).toBigDecimal().div(DEPOSIT_PRECISION)
+  pool.timestamp = timestamp
+  pool.save()
+  updatePoolAPY(poolId)
+  return pool as Pool
 }
 
-export function handleAnswerUpdated(event: AnswerUpdated): void {}
+export function updatePoolAPY(poolId: BigInt): void {
+  const BLOCKS_PER_YEAR = BigInt.fromI32(15017142).toBigDecimal()
+  const cob = fetchPool(BigInt.fromI32(15))
 
-export function handleBillingAccessControllerSet(
-  event: BillingAccessControllerSet
-): void {}
+  let pool = fetchPool(poolId)
+  const masterchef = fetchMasterchef()
+  if(!pool.allocationPoint.equals(BigInt.zero()) && !masterchef.totalAllocationPoints.equals(BigInt.zero())) {
+    const cobPerBlock = masterchef.cobPerBlock.times(pool.allocationPoint.toBigDecimal()).div(masterchef.totalAllocationPoints.toBigDecimal())
+    const cobPerYear = cobPerBlock.times(BLOCKS_PER_YEAR)
+    const cobYearUSD = cobPerYear.times(cob.priceUSD)
+    if(!pool.tvl.equals(BigDecimal.zero())) {
+      pool.apy = cobYearUSD.div(pool.tvl).times(BigInt.fromI32(100).toBigDecimal())
+    }
+    else {
+      pool.apy = BigDecimal.zero()
+    }
+  }
+  else {
+    pool.apy = BigDecimal.zero()
+  }
+  pool.save()
+}
 
-export function handleBillingSet(event: BillingSet): void {}
+export function updateAllMasterChefPools(timestamp: BigInt): void {
+  let mc = fetchMasterchef()
+  mc.tvl = BigDecimal.zero()
+  for(let i = 0; i < poolIds.length; i++) {
+    const pool = updateMasterChefPool(BigInt.fromI32(poolIds[i]), timestamp)
+    mc.tvl = mc.tvl.plus(pool.tvl)
+  }
+  mc.save()
+}
 
-export function handleCheckAccessDisabled(event: CheckAccessDisabled): void {}
 
-export function handleCheckAccessEnabled(event: CheckAccessEnabled): void {}
 
-export function handleConfigSet(event: ConfigSet): void {}
-
-export function handleNewRound(event: NewRound): void {}
-
-export function handleNewTransmission(event: NewTransmission): void {}
-
-export function handleOraclePaid(event: OraclePaid): void {}
-
-export function handleOwnershipTransferRequested(
-  event: OwnershipTransferRequested
-): void {}
-
-export function handleOwnershipTransferred(event: OwnershipTransferred): void {}
-
-export function handlePayeeshipTransferRequested(
-  event: PayeeshipTransferRequested
-): void {}
-
-export function handlePayeeshipTransferred(event: PayeeshipTransferred): void {}
-
-export function handleRemovedAccess(event: RemovedAccess): void {}
-
-export function handleRequesterAccessControllerSet(
-  event: RequesterAccessControllerSet
-): void {}
-
-export function handleRoundRequested(event: RoundRequested): void {}
-
-export function handleValidatorConfigSet(event: ValidatorConfigSet): void {}
+export function handleNewRound(event: NewRound): void {
+  updateAllMasterChefPools(event.block.timestamp)
+}

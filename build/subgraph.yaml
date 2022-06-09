@@ -1,0 +1,66 @@
+specVersion: 0.0.5
+schema:
+  file: schema.graphql
+dataSources:
+  - kind: ethereum
+    name: MasterChef
+    network: matic
+    source:
+      address: "0xb4b14aa0dfa22cb3549de81e2657c6c026014090"
+      abi: MasterChef
+      startBlock: 27763717
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.5
+      language: wasm/assemblyscript
+      entities:
+        - Deposit
+        - EmergencyWithdraw
+        - OwnershipTransferred
+        - SetDevAddress
+        - SetFeeAddress
+        - UpdateEmissionRate
+        - Withdraw
+      abis:
+        - name: MasterChef
+          file: MasterChef\abis\MasterChef.json
+        - name: ERC20
+          file: MasterChef\abis\erc20.json
+        - name: Oracle
+          file: MasterChef\abis\Oracle.json
+      eventHandlers:
+        - event: Deposit(indexed address,indexed uint256,uint256)
+          handler: handleDeposit
+        - event: EmergencyWithdraw(indexed address,indexed uint256,uint256)
+          handler: handleEmergencyWithdraw
+        - event: UpdateEmissionRate(indexed address,uint256)
+          handler: handleUpdateEmissionRate
+        - event: Withdraw(indexed address,indexed uint256,uint256)
+          handler: handleWithdraw
+      file: MasterChef\MasterChef.wasm
+  - kind: ethereum
+    name: ChainlinkOracle
+    network: matic
+    source:
+      address: "0xf9c53A834F60cBbE40E27702276fBc0819B3aFAD"
+      abi: ChainlinkOracle
+      startBlock: 29345265
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.5
+      language: wasm/assemblyscript
+      entities:
+        - NewRound
+      abis:
+        - name: MasterChef
+          file: ChainlinkOracle\abis\MasterChef.json
+        - name: ChainlinkOracle
+          file: ChainlinkOracle\abis\ChainlinkOracle.json
+        - name: Oracle
+          file: ChainlinkOracle\abis\Oracle.json
+        - name: ERC20
+          file: ChainlinkOracle\abis\erc20.json
+      eventHandlers:
+        - event: NewRound(indexed uint256,indexed address,uint256)
+          handler: handleNewRound
+      file: ChainlinkOracle\ChainlinkOracle.wasm
