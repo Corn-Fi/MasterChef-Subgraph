@@ -1,9 +1,9 @@
-import { BigInt, BigDecimal } from "@graphprotocol/graph-ts"
+import { BigInt, BigDecimal, log } from "@graphprotocol/graph-ts"
 import { NewRound } from "../generated/ChainlinkOracle/ChainlinkOracle"
 import { Oracle as OracleContract } from "../generated/ChainlinkOracle/Oracle"
 import { Pool } from "../generated/schema"
 import { fetchMasterchef, fetchPool, fetchMasterchefContract } from "./master-chef"
-import { oracleAddress, poolIds, PRECISION, DEPOSIT_PRECISION } from "./constants"
+import { oracleAddress, poolIds, PRECISION, DEPOSIT_PRECISION, BIG_INT_ZERO } from "./constants"
 
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
@@ -14,7 +14,8 @@ export function fetchOracleContract(): OracleContract {
 
 // ----------------------------------------------------------------------
 
-export function updateMasterChefPool(poolId: BigInt, timestamp: BigInt): Pool {
+
+export function fetchOraclePool(poolId: BigInt): Pool {
   let pool = fetchPool(poolId)
   const mc = fetchMasterchefContract()
   const poolInfo = mc.poolInfo(poolId)
@@ -22,33 +23,84 @@ export function updateMasterChefPool(poolId: BigInt, timestamp: BigInt): Pool {
 
   if(pool.priceUSD.equals(BigDecimal.zero())) {
     const lp = oracleContract.try_getLpRateUSD(poolInfo.getLpToken())
-    if(lp.reverted) {
+    const single = oracleContract.try_getRateUSD(poolInfo.getLpToken())
+    if(lp.reverted && single.reverted) {
+      log.error("getRate:", [poolInfo.getLpToken().toHex()])
+    }
+    else if(lp.reverted) {
       pool.lp = false
+      pool.priceUSD = single.value.toBigDecimal().div(PRECISION)
     }
     else {
       pool.lp = true
+      pool.priceUSD = lp.value.toBigDecimal().div(PRECISION)
+    }
+    pool.save()
+  }
+
+  return pool as Pool
+}
+
+export function updateMasterChefPool(poolId: BigInt, timestamp: BigInt): Pool {
+  let pool = fetchOraclePool(poolId)
+  const mc = fetchMasterchefContract()
+  const poolInfo = mc.poolInfo(poolId)
+  const oracleContract = fetchOracleContract()
+
+  // if(pool.priceUSD.equals(BigDecimal.zero())) {
+  //   const lp = oracleContract.try_getLpRateUSD(poolInfo.getLpToken())
+  //   const single = oracleContract.try_getRateUSD(poolInfo.getLpToken())
+  //   if(lp.reverted && single.reverted) {
+  //     log.error("getRate:", [poolInfo.getLpToken().toHex()])
+  //   }
+  //   else if(lp.reverted) {
+  //     pool.lp = false
+  //     pool.priceUSD = single.value.toBigDecimal().div(PRECISION)
+  //   }
+  //   else {
+  //     pool.lp = true
+  //     pool.priceUSD = lp.value.toBigDecimal().div(PRECISION)
+  //   }
+  // }
+
+  let rate = BIG_INT_ZERO
+  let revert = false
+  if(pool.lp) {
+    const rateLp = oracleContract.try_getLpRateUSD(poolInfo.getLpToken())
+    if(rateLp.reverted) {
+      revert = true
+    } else {
+      rate = rateLp.value
+    }
+  } else {
+    const rateSingle = oracleContract.try_getRateUSD(poolInfo.getLpToken())
+    if(rateSingle.reverted) {
+      revert = true
+    } else {
+      rate = rateSingle.value
     }
   }
-  if(pool.lp) {
-    pool.priceUSD = oracleContract.getLpRateUSD(poolInfo.getLpToken()).toBigDecimal().div(PRECISION)
-  }
-  else {
-    pool.priceUSD = oracleContract.getRateUSD(poolInfo.getLpToken()).toBigDecimal().div(PRECISION)
-  }
-  pool.tvl = pool.priceUSD.times(pool.totalDeposited)
 
-  const allocPoints = poolInfo.getAllocPoint()
-  if(!allocPoints.equals(pool.allocationPoint)) {
-    let masterchef = fetchMasterchef()
-    masterchef.totalAllocationPoints = masterchef.totalAllocationPoints.plus(allocPoints.minus(pool.allocationPoint))
-    masterchef.save()
-    pool.allocationPoint = allocPoints
+  if(revert) {
+    log.error("getRate:", [poolInfo.getLpToken().toHex()])
+  } else {
+    pool.priceUSD = rate.toBigDecimal().div(PRECISION)
+    pool.tvl = pool.priceUSD.times(pool.totalDeposited)
+
+    const allocPoints = poolInfo.getAllocPoint()
+    if(!allocPoints.equals(pool.allocationPoint)) {
+      let masterchef = fetchMasterchef()
+      masterchef.totalAllocationPoints = masterchef.totalAllocationPoints.plus(allocPoints.minus(pool.allocationPoint))
+      masterchef.save()
+      pool.allocationPoint = allocPoints
+    }
+    pool.allocationPoint = poolInfo.getAllocPoint()
+    pool.depositFee = BigInt.fromI32(poolInfo.getDepositFeeBP()).toBigDecimal().div(DEPOSIT_PRECISION)
+    pool.timestamp = timestamp
+    pool.save()
+    updatePoolAPY(poolId)
   }
-  pool.allocationPoint = poolInfo.getAllocPoint()
-  pool.depositFee = BigInt.fromI32(poolInfo.getDepositFeeBP()).toBigDecimal().div(DEPOSIT_PRECISION)
-  pool.timestamp = timestamp
-  pool.save()
-  updatePoolAPY(poolId)
+
   return pool as Pool
 }
 

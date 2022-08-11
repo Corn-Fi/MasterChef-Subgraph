@@ -44,7 +44,7 @@ dataSources:
     source:
       address: "0xf9c53A834F60cBbE40E27702276fBc0819B3aFAD"
       abi: ChainlinkOracle
-      startBlock: 29345265
+      startBlock: 31697038
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.5

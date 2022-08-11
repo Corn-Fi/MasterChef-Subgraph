@@ -4,10 +4,10 @@
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
-    "deploy": "graph deploy --node https://api.thegraph.com/deploy/ korey-corkscrew/masterchef-V1",
-    "create-local": "graph create --node http://localhost:8020/ korey-corkscrew/masterchef-V1",
-    "remove-local": "graph remove --node http://localhost:8020/ korey-corkscrew/masterchef-V1",
-    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 korey-corkscrew/masterchef-V1"
+    "deploy": "graph deploy --node https://api.thegraph.com/deploy/ korey-corkscrew/masterchef",
+    "create-local": "graph create --node http://localhost:8020/ korey-corkscrew/masterchef",
+    "remove-local": "graph remove --node http://localhost:8020/ korey-corkscrew/masterchef",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 korey-corkscrew/masterchef"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.30.0",
